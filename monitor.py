@@ -68,8 +68,8 @@ def build_csv(data):
 
 
 def send_email(csv_content):
-    user = os.environ["GMAIL_USER"]
-    pwd = os.environ["GMAIL_PASS"]
+    user = os.environ["HOTMAIL_USER"]
+    pwd =  os.environ["HOTMAIL_PASS"]
 
     msg = EmailMessage()
     msg["Subject"] = "[자동] 신규 사업 공고 알림"
@@ -78,7 +78,8 @@ def send_email(csv_content):
     msg.set_content("첨부된 CSV 파일을 확인해 주세요.")
     msg.add_attachment(csv_content.encode("utf-8"), maintype="text", subtype="csv", filename="announcements.csv")
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+    with smtplib.SMTP("smtp.office365.com", 587) as smtp:
+        smtp.starttls()
         smtp.login(user, pwd)
         smtp.send_message(msg)
 
