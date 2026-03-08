@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경영진 대시보드 - {{ data.overview.company_name }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a237e;
+            --primary-light: #3949ab;
+            --accent: #0d47a1;
+            --success: #2e7d32;
+            --warning: #f57f17;
+            --danger: #c62828;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text: #212121;
+            --text-secondary: #616161;
+            --border: #e0e0e0;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: white;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
+        .header h1 { font-size: 1.5rem; font-weight: 600; }
+        .header-info { font-size: 0.85rem; opacity: 0.9; }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            background: white;
+            display: flex;
+            padding: 0 24px;
+            border-bottom: 2px solid var(--border);
+            overflow-x: auto;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+        .nav-tab {
+            padding: 14px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover { color: var(--primary); background: #f5f5ff; }
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            transition: box-shadow 0.2s;
+        }
+        .card:hover { box-shadow: var(--shadow-hover); }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* Grid */
+        .grid { display: grid; gap: 20px; }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+        @media (max-width: 1024px) {
+            .grid-3, .grid-4, .grid-5 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+        }
+
+        /* KPI Cards */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+        .kpi-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px; }
+        .kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--primary); }
+        .kpi-sub { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }
+        .kpi-change { font-size: 0.8rem; margin-top: 4px; }
+        .kpi-change.positive { color: var(--success); }
+        .kpi-change.negative { color: var(--danger); }
+
+        /* Tables */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: #f5f6fa;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover td { background: #fafbff; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background: #e8f5e9; color: var(--success); }
+        .badge-warning { background: #fff8e1; color: var(--warning); }
+        .badge-danger { background: #ffebee; color: var(--danger); }
+        .badge-info { background: #e3f2fd; color: var(--accent); }
+        .badge-default { background: #f5f5f5; color: var(--text-secondary); }
+
+        /* Progress Bar */
+        .progress-bar {
+            background: #e0e0e0;
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 8px;
+            transition: width 0.8s ease;
+        }
+        .progress-fill.high { background: linear-gradient(90deg, var(--success), #66bb6a); }
+        .progress-fill.medium { background: linear-gradient(90deg, var(--warning), #ffb300); }
+        .progress-fill.low { background: linear-gradient(90deg, var(--danger), #ef5350); }
+
+        /* Chart Container */
+        .chart-container { position: relative; height: 280px; }
+
+        /* Risk Items */
+        .risk-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .risk-item:last-child { border-bottom: none; }
+        .risk-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .risk-dot.high { background: var(--danger); }
+        .risk-dot.medium { background: var(--warning); }
+        .risk-dot.low { background: var(--success); }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title .dept-badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+        }
+
+        /* Utility */
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .mt-20 { margin-top: 20px; }
+        .mb-20 { margin-bottom: 20px; }
+
+        .amount { font-family: 'Courier New', monospace; }
+
+        /* Print */
+        @media print {
+            .nav-tabs { display: none; }
+            .tab-content { display: block !important; page-break-before: always; }
+            .tab-content:first-child { page-break-before: avoid; }
+            .card { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>{{ data.overview.company_name }} 경영 대시보드</h1>
+        <div class="header-info">{{ data.overview.fiscal_year }}년 경영 현황 종합 리포트</div>
+    </div>
+    <div style="text-align:right">
+        <div class="header-info">기준일: {{ data.overview.report_date }}</div>
+        <div class="header-info">임직원 {{ data.overview.total_employees }}명</div>
+    </div>
+</div>
+
+<div class="nav-tabs">
+    <div class="nav-tab active" data-tab="overview">전체 현황</div>
+    <div class="nav-tab" data-tab="business-ops">사업수행팀</div>
+    <div class="nav-tab" data-tab="sales">영업팀</div>
+    <div class="nav-tab" data-tab="strategic">전략기획실</div>
+    <div class="nav-tab" data-tab="hr">인사팀</div>
+    <div class="nav-tab" data-tab="finance">재무팀</div>
+</div>
+
+<div class="main-content">
+
+    <!-- ==================== 전체 현황 ==================== -->
+    <div class="tab-content active" id="tab-overview">
+        <div class="grid grid-5 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">총 매출</div>
+                <div class="kpi-value">{{ "%.0f"|format(data.overview.total_revenue / 100000000) }}억</div>
+                <div class="kpi-change positive">YoY +{{ data.overview.yoy_revenue_growth }}%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">영업이익</div>
+                <div class="kpi-value">{{ "%.1f"|format(data.overview.operating_profit / 100000000) }}억</div>
+                <div class="kpi-sub">영업이익률 {{ data.overview.operating_profit_margin }}%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">매출 달성률</div>
+                <div class="kpi-value">{{ data.overview.revenue_achievement_rate }}%</div>
+                <div class="kpi-sub">목표 {{ "%.0f"|format(data.overview.total_revenue_target / 100000000) }}억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">진행 프로젝트</div>
+                <div class="kpi-value">{{ data.overview.ongoing_projects }}</div>
+                <div class="kpi-sub">완료 {{ data.overview.completed_projects }}건</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">신규 수주</div>
+                <div class="kpi-value">{{ data.overview.new_contracts_ytd }}건</div>
+                <div class="kpi-change positive">YTD 누적</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">월별 매출 추이</div>
+                <div class="chart-container">
+                    <canvas id="overviewRevenueChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">부서별 인원 현황</div>
+                <div class="chart-container">
+                    <canvas id="overviewHeadcountChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">주요 리스크</div>
+                {% for risk in data.overview.key_risks %}
+                <div class="risk-item">
+                    <div class="risk-dot {{ risk.level }}"></div>
+                    <span class="badge badge-{{ 'danger' if risk.level == 'high' else ('warning' if risk.level == 'medium' else 'success') }}">
+                        {{ '높음' if risk.level == 'high' else ('보통' if risk.level == 'medium' else '낮음') }}
+                    </span>
+                    <span>{{ risk.description }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="card">
+                <div class="card-title">부서별 예산 집행 현황</div>
+                <div class="chart-container">
+                    <canvas id="budgetChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 사업수행팀 ==================== -->
+    <div class="tab-content" id="tab-business-ops">
+        <div class="section-title">
+            사업수행팀 경영 현황
+            <span class="dept-badge">{{ data.business_ops.head }} | {{ data.business_ops.headcount }}명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">진행 프로젝트</div>
+                <div class="kpi-value">{{ data.business_ops.summary.ongoing_projects }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">완료 프로젝트</div>
+                <div class="kpi-value">{{ data.business_ops.summary.completed_projects }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">프로젝트 완료율</div>
+                <div class="kpi-value">{{ data.business_ops.summary.project_completion_rate }}%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">고객 만족도</div>
+                <div class="kpi-value">{{ data.business_ops.summary.client_satisfaction_score }}/5.0</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">프로젝트 현황</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>프로젝트명</th>
+                            <th>고객사</th>
+                            <th>상태</th>
+                            <th>진행률</th>
+                            <th class="text-right">예산</th>
+                            <th class="text-right">집행액</th>
+                            <th>마감일</th>
+                            <th>리스크</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in data.business_ops.projects %}
+                        <tr>
+                            <td><strong>{{ p.name }}</strong></td>
+                            <td>{{ p.client }}</td>
+                            <td>
+                                <span class="badge {{ 'badge-success' if p.status == '완료' else 'badge-info' }}">{{ p.status }}</span>
+                            </td>
+                            <td style="min-width:120px">
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <div class="progress-bar" style="flex:1">
+                                        <div class="progress-fill {{ 'high' if p.progress >= 70 else ('medium' if p.progress >= 40 else 'low') }}" style="width:{{ p.progress }}%"></div>
+                                    </div>
+                                    <span style="font-size:0.8rem">{{ p.progress }}%</span>
+                                </div>
+                            </td>
+                            <td class="text-right amount">{{ "{:,.0f}".format(p.budget / 10000) }}만</td>
+                            <td class="text-right amount">{{ "{:,.0f}".format(p.spent / 10000) }}만</td>
+                            <td>{{ p.deadline }}</td>
+                            <td>
+                                <span class="badge badge-{{ 'danger' if p.risk == 'high' else ('warning' if p.risk == 'medium' else 'success') }}">
+                                    {{ '높음' if p.risk == 'high' else ('보통' if p.risk == 'medium' else '낮음') }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">월별 프로젝트 납품 추이</div>
+                <div class="chart-container">
+                    <canvas id="bopsDeliveryChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">리소스 현황</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:250px">
+                    <div class="kpi-label">리소스 활용률</div>
+                    <div class="kpi-value" style="font-size:3rem;color:{{ '#2e7d32' if data.business_ops.resource_utilization > 80 else '#f57f17' }}">
+                        {{ data.business_ops.resource_utilization }}%
+                    </div>
+                    <div class="progress-bar" style="width:80%;margin-top:16px;height:12px">
+                        <div class="progress-fill high" style="width:{{ data.business_ops.resource_utilization }}%"></div>
+                    </div>
+                    <div class="kpi-sub mt-20">지연 프로젝트: {{ data.business_ops.summary.delayed_projects }}건 | 평균 프로젝트 기간: {{ data.business_ops.summary.avg_project_duration_days }}일</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 영업팀 ==================== -->
+    <div class="tab-content" id="tab-sales">
+        <div class="section-title">
+            영업팀 경영 현황
+            <span class="dept-badge">{{ data.sales.head }} | {{ data.sales.headcount }}명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">연간 목표</div>
+                <div class="kpi-value">{{ "%.0f"|format(data.sales.summary.annual_target / 100000000) }}억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">누적 실적</div>
+                <div class="kpi-value">{{ "%.0f"|format(data.sales.summary.ytd_actual / 100000000) }}억</div>
+                <div class="kpi-sub">달성률 {{ data.sales.summary.achievement_rate }}%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">파이프라인</div>
+                <div class="kpi-value">{{ "%.0f"|format(data.sales.summary.pipeline_value / 100000000) }}억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">수주 전환율</div>
+                <div class="kpi-value">{{ data.sales.summary.conversion_rate }}%</div>
+                <div class="kpi-sub">이달 신규 리드 {{ data.sales.summary.new_leads_month }}건</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">영업 파이프라인</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>고객사</th>
+                                <th>딜 명</th>
+                                <th class="text-right">금액</th>
+                                <th>단계</th>
+                                <th>수주확률</th>
+                                <th>예상 마감</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in data.sales.pipeline %}
+                            <tr>
+                                <td><strong>{{ d.client }}</strong></td>
+                                <td>{{ d.deal_name }}</td>
+                                <td class="text-right amount">{{ "{:,.0f}".format(d.value / 10000) }}만</td>
+                                <td><span class="badge badge-info">{{ d.stage }}</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px">
+                                        <div class="progress-bar" style="width:60px">
+                                            <div class="progress-fill {{ 'high' if d.probability >= 60 else ('medium' if d.probability >= 40 else 'low') }}" style="width:{{ d.probability }}%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">{{ d.probability }}%</span>
+                                    </div>
+                                </td>
+                                <td>{{ d.expected_close }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">월별 매출 추이</div>
+                <div class="chart-container">
+                    <canvas id="salesMonthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-20">
+            <div class="card-title">주요 고객사별 매출</div>
+            <div class="chart-container">
+                <canvas id="salesClientChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 전략기획실 ==================== -->
+    <div class="tab-content" id="tab-strategic">
+        <div class="section-title">
+            전략기획실 경영 현황
+            <span class="dept-badge">{{ data.strategic_planning.head }} | {{ data.strategic_planning.headcount }}명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">전략 과제</div>
+                <div class="kpi-value">{{ data.strategic_planning.summary.strategic_initiatives }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">완료 과제</div>
+                <div class="kpi-value">{{ data.strategic_planning.summary.completed_initiatives }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">시장 점유율</div>
+                <div class="kpi-value">{{ data.strategic_planning.summary.market_share }}%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">시장 성장률</div>
+                <div class="kpi-value">{{ data.strategic_planning.summary.market_growth_rate }}%</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">전략 과제 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>과제명</th>
+                                <th>담당자</th>
+                                <th>우선순위</th>
+                                <th>상태</th>
+                                <th>진행률</th>
+                                <th>마감일</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in data.strategic_planning.initiatives %}
+                            <tr>
+                                <td><strong>{{ i.name }}</strong></td>
+                                <td>{{ i.owner }}</td>
+                                <td><span class="badge {{ 'badge-danger' if i.priority == '최상' else ('badge-warning' if i.priority == '상' else 'badge-default') }}">{{ i.priority }}</span></td>
+                                <td><span class="badge {{ 'badge-success' if i.status == '완료' else 'badge-info' }}">{{ i.status }}</span></td>
+                                <td style="min-width:120px">
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="flex:1">
+                                            <div class="progress-fill {{ 'high' if i.progress >= 70 else ('medium' if i.progress >= 40 else 'low') }}" style="width:{{ i.progress }}%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">{{ i.progress }}%</span>
+                                    </div>
+                                </td>
+                                <td>{{ i.deadline }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">KPI 달성 현황</div>
+                <div class="chart-container">
+                    <canvas id="stratKpiChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">시장 분석</div>
+                <div style="padding:8px 0">
+                    <div class="risk-item">
+                        <strong>전체 시장 규모:</strong>&nbsp;{{ "{:,.0f}".format(data.strategic_planning.market_analysis.total_market_size / 100000000) }}억원
+                    </div>
+                    <div class="risk-item">
+                        <strong>당사 포지션:</strong>&nbsp;{{ data.strategic_planning.market_analysis.company_position }}
+                    </div>
+                    <div class="risk-item">
+                        <strong>성장 영역:</strong>&nbsp;{{ data.strategic_planning.market_analysis.growth_areas | join(', ') }}
+                    </div>
+                    <div class="risk-item">
+                        <strong>위협 요인:</strong>&nbsp;{{ data.strategic_planning.market_analysis.threats | join(', ') }}
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">KPI 상세</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>KPI</th><th class="text-right">목표</th><th class="text-right">실적</th><th>달성률</th></tr></thead>
+                        <tbody>
+                            {% for k in data.strategic_planning.kpi_tracking %}
+                            <tr>
+                                <td>{{ k.kpi }}</td>
+                                <td class="text-right">{{ k.target }}{{ k.unit }}</td>
+                                <td class="text-right">{{ k.actual }}{{ k.unit }}</td>
+                                <td>
+                                    {% set rate = (k.actual / k.target * 100) | round(1) %}
+                                    <span class="badge {{ 'badge-success' if rate >= 80 else ('badge-warning' if rate >= 50 else 'badge-danger') }}">{{ rate }}%</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 인사팀 ==================== -->
+    <div class="tab-content" id="tab-hr">
+        <div class="section-title">
+            인사팀 경영 현황
+            <span class="dept-badge">{{ data.hr.head }} | {{ data.hr.headcount }}명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">총 임직원</div>
+                <div class="kpi-value">{{ data.hr.summary.total_employees }}명</div>
+                <div class="kpi-sub">신규 입사 {{ data.hr.summary.new_hires_ytd }}명 (YTD)</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">이직률</div>
+                <div class="kpi-value">{{ data.hr.summary.turnover_rate }}%</div>
+                <div class="kpi-sub">평균 근속 {{ data.hr.summary.avg_tenure_years }}년</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">직원 만족도</div>
+                <div class="kpi-value">{{ data.hr.summary.employee_satisfaction }}점</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">채용 진행중</div>
+                <div class="kpi-value">{{ data.hr.summary.open_positions }}건</div>
+                <div class="kpi-sub">교육시간 {{ data.hr.summary.training_hours_per_person }}h/인</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">부서별 인원 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>부서</th><th class="text-right">인원</th><th class="text-right">신규 채용</th><th class="text-right">퇴사</th><th>순증감</th></tr></thead>
+                        <tbody>
+                            {% for d in data.hr.department_breakdown %}
+                            <tr>
+                                <td><strong>{{ d.dept }}</strong></td>
+                                <td class="text-right">{{ d.count }}명</td>
+                                <td class="text-right">{{ d.new_hires }}명</td>
+                                <td class="text-right">{{ d.turnover }}명</td>
+                                <td>
+                                    {% set net = d.new_hires - d.turnover %}
+                                    <span class="badge {{ 'badge-success' if net > 0 else ('badge-danger' if net < 0 else 'badge-default') }}">
+                                        {{ '+' if net > 0 else '' }}{{ net }}명
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">채용 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>포지션</th><th>부서</th><th>상태</th><th class="text-right">지원자</th></tr></thead>
+                        <tbody>
+                            {% for r in data.hr.recruitment %}
+                            <tr>
+                                <td><strong>{{ r.position }}</strong></td>
+                                <td>{{ r.dept }}</td>
+                                <td><span class="badge badge-info">{{ r.status }}</span></td>
+                                <td class="text-right">{{ r.applicants }}명</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">교육 프로그램 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>프로그램</th><th class="text-right">참여인원</th><th>이수율</th></tr></thead>
+                        <tbody>
+                            {% for t in data.hr.training_programs %}
+                            <tr>
+                                <td>{{ t.name }}</td>
+                                <td class="text-right">{{ t.participants }}명</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="width:80px">
+                                            <div class="progress-fill {{ 'high' if t.completion_rate >= 80 else ('medium' if t.completion_rate >= 50 else 'low') }}" style="width:{{ t.completion_rate }}%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">{{ t.completion_rate }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">월별 인원 추이</div>
+                <div class="chart-container">
+                    <canvas id="hrHeadcountChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 재무팀 ==================== -->
+    <div class="tab-content" id="tab-finance">
+        <div class="section-title">
+            재무팀 경영 현황
+            <span class="dept-badge">{{ data.finance.head }} | {{ data.finance.headcount }}명</span>
+        </div>
+
+        <div class="grid grid-5 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">총 매출</div>
+                <div class="kpi-value">{{ "%.0f"|format(data.finance.summary.total_revenue / 100000000) }}억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">영업이익</div>
+                <div class="kpi-value">{{ "%.1f"|format(data.finance.summary.operating_profit / 100000000) }}억</div>
+                <div class="kpi-sub">이익률 {{ data.finance.summary.operating_margin }}%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">순이익</div>
+                <div class="kpi-value">{{ "%.1f"|format(data.finance.summary.net_profit / 100000000) }}억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">부채비율</div>
+                <div class="kpi-value">{{ data.finance.summary.debt_ratio }}%</div>
+                <div class="kpi-sub">유동비율 {{ data.finance.summary.current_ratio }}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">현금 보유</div>
+                <div class="kpi-value">{{ "%.0f"|format(data.finance.summary.cash_reserves / 100000000) }}억</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">손익계산서 요약</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>항목</th><th class="text-right">당기</th><th class="text-right">전기</th><th class="text-right">증감률</th></tr></thead>
+                        <tbody>
+                            {% for i in data.finance.income_statement %}
+                            <tr>
+                                <td><strong>{{ i.item }}</strong></td>
+                                <td class="text-right amount">{{ "{:,.0f}".format(i.current / 10000) }}만</td>
+                                <td class="text-right amount">{{ "{:,.0f}".format(i.previous / 10000) }}만</td>
+                                <td class="text-right">
+                                    <span class="kpi-change {{ 'positive' if i.change > 0 else 'negative' }}">
+                                        {{ '+' if i.change > 0 else '' }}{{ i.change }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">비용 구조</div>
+                <div class="chart-container">
+                    <canvas id="finExpenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">월별 매출/이익 추이</div>
+                <div class="chart-container">
+                    <canvas id="finRevProfitChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">부서별 예산 대비 실적</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>부서</th><th class="text-right">예산</th><th class="text-right">실적</th><th class="text-right">차이</th></tr></thead>
+                        <tbody>
+                            {% for b in data.finance.budget_vs_actual %}
+                            <tr>
+                                <td><strong>{{ b.dept }}</strong></td>
+                                <td class="text-right amount">{{ "{:,.0f}".format(b.budget / 10000) }}만</td>
+                                <td class="text-right amount">{{ "{:,.0f}".format(b.actual / 10000) }}만</td>
+                                <td class="text-right">
+                                    <span class="badge {{ 'badge-success' if b.variance <= 0 else 'badge-warning' }}">{{ b.variance }}%</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// Tab navigation
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+// Chart defaults
+Chart.defaults.font.family = "'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+const COLORS = ['#1a237e','#0d47a1','#1565c0','#1976d2','#1e88e5','#42a5f5'];
+const COLORS_LIGHT = ['rgba(26,35,126,0.15)','rgba(13,71,161,0.15)','rgba(21,101,192,0.15)','rgba(25,118,210,0.15)','rgba(30,136,229,0.15)'];
+
+// Data from server
+const overviewData = {{ data.overview | tojson }};
+const bopsData = {{ data.business_ops | tojson }};
+const salesData = {{ data.sales | tojson }};
+const financeData = {{ data.finance | tojson }};
+const hrData = {{ data.hr | tojson }};
+const stratData = {{ data.strategic_planning | tojson }};
+
+// 1. Overview Revenue Chart
+new Chart(document.getElementById('overviewRevenueChart'), {
+    type: 'bar',
+    data: {
+        labels: overviewData.monthly_revenue.map(m => m.month),
+        datasets: [{
+            label: '월 매출 (억)',
+            data: overviewData.monthly_revenue.map(m => (m.value / 100000000).toFixed(1)),
+            backgroundColor: 'rgba(26,35,126,0.7)',
+            borderRadius: 6
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+});
+
+// 2. Headcount Pie
+const hcLabels = Object.keys(overviewData.department_headcount);
+const hcValues = Object.values(overviewData.department_headcount);
+new Chart(document.getElementById('overviewHeadcountChart'), {
+    type: 'doughnut',
+    data: {
+        labels: hcLabels,
+        datasets: [{ data: hcValues, backgroundColor: COLORS }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+});
+
+// 3. Budget Chart
+new Chart(document.getElementById('budgetChart'), {
+    type: 'bar',
+    data: {
+        labels: financeData.budget_vs_actual.map(b => b.dept),
+        datasets: [
+            { label: '예산', data: financeData.budget_vs_actual.map(b => (b.budget / 100000000).toFixed(1)), backgroundColor: 'rgba(26,35,126,0.3)', borderRadius: 4 },
+            { label: '실적', data: financeData.budget_vs_actual.map(b => (b.actual / 100000000).toFixed(1)), backgroundColor: 'rgba(26,35,126,0.8)', borderRadius: 4 }
+        ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+
+// 4. Bops Delivery
+new Chart(document.getElementById('bopsDeliveryChart'), {
+    type: 'line',
+    data: {
+        labels: bopsData.monthly_delivery.map(m => m.month),
+        datasets: [{
+            label: '납품 건수',
+            data: bopsData.monthly_delivery.map(m => m.value),
+            borderColor: COLORS[0],
+            backgroundColor: COLORS_LIGHT[0],
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+
+// 5. Sales Monthly
+new Chart(document.getElementById('salesMonthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: salesData.monthly_sales.map(m => m.month),
+        datasets: [{
+            label: '월 매출 (억)',
+            data: salesData.monthly_sales.map(m => (m.value / 100000000).toFixed(1)),
+            backgroundColor: 'rgba(13,71,161,0.7)',
+            borderRadius: 6
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+});
+
+// 6. Sales Client
+new Chart(document.getElementById('salesClientChart'), {
+    type: 'bar',
+    data: {
+        labels: salesData.top_clients_revenue.map(c => c.client),
+        datasets: [{
+            label: '매출 (억)',
+            data: salesData.top_clients_revenue.map(c => (c.revenue / 100000000).toFixed(1)),
+            backgroundColor: COLORS.slice(0, 5),
+            borderRadius: 6
+        }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+});
+
+// 7. Strategic KPI
+new Chart(document.getElementById('stratKpiChart'), {
+    type: 'bar',
+    data: {
+        labels: stratData.kpi_tracking.map(k => k.kpi),
+        datasets: [
+            { label: '목표', data: stratData.kpi_tracking.map(k => k.target), backgroundColor: 'rgba(26,35,126,0.3)', borderRadius: 4 },
+            { label: '실적', data: stratData.kpi_tracking.map(k => k.actual), backgroundColor: 'rgba(26,35,126,0.8)', borderRadius: 4 }
+        ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+
+// 8. HR Headcount
+new Chart(document.getElementById('hrHeadcountChart'), {
+    type: 'line',
+    data: {
+        labels: hrData.monthly_headcount.map(m => m.month),
+        datasets: [{
+            label: '인원',
+            data: hrData.monthly_headcount.map(m => m.value),
+            borderColor: COLORS[0],
+            backgroundColor: COLORS_LIGHT[0],
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
+});
+
+// 9. Finance Expense
+new Chart(document.getElementById('finExpenseChart'), {
+    type: 'doughnut',
+    data: {
+        labels: financeData.expense_breakdown.map(e => e.category),
+        datasets: [{ data: financeData.expense_breakdown.map(e => e.amount / 100000000), backgroundColor: COLORS }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+});
+
+// 10. Finance Revenue/Profit
+new Chart(document.getElementById('finRevProfitChart'), {
+    type: 'bar',
+    data: {
+        labels: financeData.monthly_revenue.map(m => m.month),
+        datasets: [
+            { label: '매출 (억)', data: financeData.monthly_revenue.map(m => (m.value / 100000000).toFixed(1)), backgroundColor: 'rgba(26,35,126,0.7)', borderRadius: 4 },
+            { label: '이익 (억)', data: financeData.monthly_profit.map(m => (m.value / 100000000).toFixed(2)), backgroundColor: 'rgba(46,125,50,0.7)', borderRadius: 4 }
+        ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+</script>
+
+</body>
+</html>
