@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경영진 대시보드 - 리스크제로(주)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a237e;
+            --primary-light: #3949ab;
+            --accent: #0d47a1;
+            --success: #2e7d32;
+            --warning: #f57f17;
+            --danger: #c62828;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text: #212121;
+            --text-secondary: #616161;
+            --border: #e0e0e0;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --shadow-hover: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: white;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
+        .header h1 { font-size: 1.5rem; font-weight: 600; }
+        .header-info { font-size: 0.85rem; opacity: 0.9; }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            background: white;
+            display: flex;
+            padding: 0 24px;
+            border-bottom: 2px solid var(--border);
+            overflow-x: auto;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+        .nav-tab {
+            padding: 14px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover { color: var(--primary); background: #f5f5ff; }
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main-content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            transition: box-shadow 0.2s;
+        }
+        .card:hover { box-shadow: var(--shadow-hover); }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* Grid */
+        .grid { display: grid; gap: 20px; }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+        @media (max-width: 1024px) {
+            .grid-3, .grid-4, .grid-5 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .grid-2, .grid-3, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+        }
+
+        /* KPI Cards */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+        .kpi-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px; }
+        .kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--primary); }
+        .kpi-sub { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }
+        .kpi-change { font-size: 0.8rem; margin-top: 4px; }
+        .kpi-change.positive { color: var(--success); }
+        .kpi-change.negative { color: var(--danger); }
+
+        /* Tables */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: #f5f6fa;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover td { background: #fafbff; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background: #e8f5e9; color: var(--success); }
+        .badge-warning { background: #fff8e1; color: var(--warning); }
+        .badge-danger { background: #ffebee; color: var(--danger); }
+        .badge-info { background: #e3f2fd; color: var(--accent); }
+        .badge-default { background: #f5f5f5; color: var(--text-secondary); }
+
+        /* Progress Bar */
+        .progress-bar {
+            background: #e0e0e0;
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 8px;
+            transition: width 0.8s ease;
+        }
+        .progress-fill.high { background: linear-gradient(90deg, var(--success), #66bb6a); }
+        .progress-fill.medium { background: linear-gradient(90deg, var(--warning), #ffb300); }
+        .progress-fill.low { background: linear-gradient(90deg, var(--danger), #ef5350); }
+
+        /* Chart Container */
+        .chart-container { position: relative; height: 280px; }
+
+        /* Risk Items */
+        .risk-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .risk-item:last-child { border-bottom: none; }
+        .risk-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .risk-dot.high { background: var(--danger); }
+        .risk-dot.medium { background: var(--warning); }
+        .risk-dot.low { background: var(--success); }
+
+        /* Section Title */
+        .section-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title .dept-badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+        }
+
+        /* Utility */
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .mt-20 { margin-top: 20px; }
+        .mb-20 { margin-bottom: 20px; }
+
+        .amount { font-family: 'Courier New', monospace; }
+
+        /* Print */
+        @media print {
+            .nav-tabs { display: none; }
+            .tab-content { display: block !important; page-break-before: always; }
+            .tab-content:first-child { page-break-before: avoid; }
+            .card { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>리스크제로(주) 경영 대시보드</h1>
+        <div class="header-info">2026년 경영 현황 종합 리포트</div>
+    </div>
+    <div style="text-align:right">
+        <div class="header-info">기준일: 2026-03-08</div>
+        <div class="header-info">임직원 87명</div>
+    </div>
+</div>
+
+<div class="nav-tabs">
+    <div class="nav-tab active" data-tab="overview">전체 현황</div>
+    <div class="nav-tab" data-tab="business-ops">사업수행팀</div>
+    <div class="nav-tab" data-tab="sales">영업팀</div>
+    <div class="nav-tab" data-tab="strategic">전략기획실</div>
+    <div class="nav-tab" data-tab="hr">인사팀</div>
+    <div class="nav-tab" data-tab="finance">재무팀</div>
+</div>
+
+<div class="main-content">
+
+    <!-- ==================== 전체 현황 ==================== -->
+    <div class="tab-content active" id="tab-overview">
+        <div class="grid grid-5 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">총 매출</div>
+                <div class="kpi-value">48억</div>
+                <div class="kpi-change positive">YoY +15.2%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">영업이익</div>
+                <div class="kpi-value">6.2억</div>
+                <div class="kpi-sub">영업이익률 12.8%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">매출 달성률</div>
+                <div class="kpi-value">80.8%</div>
+                <div class="kpi-sub">목표 60억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">진행 프로젝트</div>
+                <div class="kpi-value">23</div>
+                <div class="kpi-sub">완료 14건</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">신규 수주</div>
+                <div class="kpi-value">18건</div>
+                <div class="kpi-change positive">YTD 누적</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">월별 매출 추이</div>
+                <div class="chart-container">
+                    <canvas id="overviewRevenueChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">부서별 인원 현황</div>
+                <div class="chart-container">
+                    <canvas id="overviewHeadcountChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">주요 리스크</div>
+                
+                <div class="risk-item">
+                    <div class="risk-dot high"></div>
+                    <span class="badge badge-danger">
+                        높음
+                    </span>
+                    <span>주요 고객사 계약 갱신 협상 중 (3월 말 마감)</span>
+                </div>
+                
+                <div class="risk-item">
+                    <div class="risk-dot medium"></div>
+                    <span class="badge badge-warning">
+                        보통
+                    </span>
+                    <span>신규 인력 충원 지연 (개발 직군)</span>
+                </div>
+                
+                <div class="risk-item">
+                    <div class="risk-dot low"></div>
+                    <span class="badge badge-success">
+                        낮음
+                    </span>
+                    <span>사무실 임대 계약 갱신 (6월)</span>
+                </div>
+                
+            </div>
+            <div class="card">
+                <div class="card-title">부서별 예산 집행 현황</div>
+                <div class="chart-container">
+                    <canvas id="budgetChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 사업수행팀 ==================== -->
+    <div class="tab-content" id="tab-business-ops">
+        <div class="section-title">
+            사업수행팀 경영 현황
+            <span class="dept-badge">김영수 팀장 | 28명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">진행 프로젝트</div>
+                <div class="kpi-value">23</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">완료 프로젝트</div>
+                <div class="kpi-value">14</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">프로젝트 완료율</div>
+                <div class="kpi-value">82.4%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">고객 만족도</div>
+                <div class="kpi-value">4.3/5.0</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">프로젝트 현황</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>프로젝트명</th>
+                            <th>고객사</th>
+                            <th>상태</th>
+                            <th>진행률</th>
+                            <th class="text-right">예산</th>
+                            <th class="text-right">집행액</th>
+                            <th>마감일</th>
+                            <th>리스크</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td><strong>A사 안전보건 관리시스템 구축</strong></td>
+                            <td>A건설</td>
+                            <td>
+                                <span class="badge badge-info">진행중</span>
+                            </td>
+                            <td style="min-width:120px">
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <div class="progress-bar" style="flex:1">
+                                        <div class="progress-fill high" style="width:72%"></div>
+                                    </div>
+                                    <span style="font-size:0.8rem">72%</span>
+                                </div>
+                            </td>
+                            <td class="text-right amount">35,000만</td>
+                            <td class="text-right amount">24,800만</td>
+                            <td>2026-05-15</td>
+                            <td>
+                                <span class="badge badge-success">
+                                    낮음
+                                </span>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td><strong>B사 스마트 안전 모니터링</strong></td>
+                            <td>B중공업</td>
+                            <td>
+                                <span class="badge badge-info">진행중</span>
+                            </td>
+                            <td style="min-width:120px">
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <div class="progress-bar" style="flex:1">
+                                        <div class="progress-fill medium" style="width:45%"></div>
+                                    </div>
+                                    <span style="font-size:0.8rem">45%</span>
+                                </div>
+                            </td>
+                            <td class="text-right amount">52,000만</td>
+                            <td class="text-right amount">21,000만</td>
+                            <td>2026-07-30</td>
+                            <td>
+                                <span class="badge badge-warning">
+                                    보통
+                                </span>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td><strong>C사 AI 위험성 평가 플랫폼</strong></td>
+                            <td>C건설</td>
+                            <td>
+                                <span class="badge badge-info">진행중</span>
+                            </td>
+                            <td style="min-width:120px">
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <div class="progress-bar" style="flex:1">
+                                        <div class="progress-fill high" style="width:88%"></div>
+                                    </div>
+                                    <span style="font-size:0.8rem">88%</span>
+                                </div>
+                            </td>
+                            <td class="text-right amount">28,000만</td>
+                            <td class="text-right amount">24,500만</td>
+                            <td>2026-03-31</td>
+                            <td>
+                                <span class="badge badge-danger">
+                                    높음
+                                </span>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td><strong>D사 산업안전 컨설팅</strong></td>
+                            <td>D제조</td>
+                            <td>
+                                <span class="badge badge-success">완료</span>
+                            </td>
+                            <td style="min-width:120px">
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <div class="progress-bar" style="flex:1">
+                                        <div class="progress-fill high" style="width:100%"></div>
+                                    </div>
+                                    <span style="font-size:0.8rem">100%</span>
+                                </div>
+                            </td>
+                            <td class="text-right amount">15,000만</td>
+                            <td class="text-right amount">14,200만</td>
+                            <td>2026-02-28</td>
+                            <td>
+                                <span class="badge badge-success">
+                                    낮음
+                                </span>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td><strong>E사 건설현장 IoT 안전시스템</strong></td>
+                            <td>E건설</td>
+                            <td>
+                                <span class="badge badge-info">진행중</span>
+                            </td>
+                            <td style="min-width:120px">
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <div class="progress-bar" style="flex:1">
+                                        <div class="progress-fill low" style="width:30%"></div>
+                                    </div>
+                                    <span style="font-size:0.8rem">30%</span>
+                                </div>
+                            </td>
+                            <td class="text-right amount">68,000만</td>
+                            <td class="text-right amount">18,500만</td>
+                            <td>2026-09-30</td>
+                            <td>
+                                <span class="badge badge-success">
+                                    낮음
+                                </span>
+                            </td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">월별 프로젝트 납품 추이</div>
+                <div class="chart-container">
+                    <canvas id="bopsDeliveryChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">리소스 현황</div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:250px">
+                    <div class="kpi-label">리소스 활용률</div>
+                    <div class="kpi-value" style="font-size:3rem;color:#2e7d32">
+                        87.5%
+                    </div>
+                    <div class="progress-bar" style="width:80%;margin-top:16px;height:12px">
+                        <div class="progress-fill high" style="width:87.5%"></div>
+                    </div>
+                    <div class="kpi-sub mt-20">지연 프로젝트: 3건 | 평균 프로젝트 기간: 95일</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 영업팀 ==================== -->
+    <div class="tab-content" id="tab-sales">
+        <div class="section-title">
+            영업팀 경영 현황
+            <span class="dept-badge">이지현 팀장 | 18명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">연간 목표</div>
+                <div class="kpi-value">60억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">누적 실적</div>
+                <div class="kpi-value">48억</div>
+                <div class="kpi-sub">달성률 80.8%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">파이프라인</div>
+                <div class="kpi-value">32억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">수주 전환율</div>
+                <div class="kpi-value">32.5%</div>
+                <div class="kpi-sub">이달 신규 리드 15건</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">영업 파이프라인</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>고객사</th>
+                                <th>딜 명</th>
+                                <th class="text-right">금액</th>
+                                <th>단계</th>
+                                <th>수주확률</th>
+                                <th>예상 마감</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td><strong>F그룹</strong></td>
+                                <td>통합 안전관리 플랫폼</td>
+                                <td class="text-right amount">85,000만</td>
+                                <td><span class="badge badge-info">제안서 제출</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px">
+                                        <div class="progress-bar" style="width:60px">
+                                            <div class="progress-fill high" style="width:60%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">60%</span>
+                                    </div>
+                                </td>
+                                <td>2026-04-15</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>G공사</strong></td>
+                                <td>스마트 건설안전 시스템</td>
+                                <td class="text-right amount">120,000만</td>
+                                <td><span class="badge badge-info">기술검토</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px">
+                                        <div class="progress-bar" style="width:60px">
+                                            <div class="progress-fill medium" style="width:40%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">40%</span>
+                                    </div>
+                                </td>
+                                <td>2026-06-30</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>H제조</strong></td>
+                                <td>산업안전 AI 솔루션</td>
+                                <td class="text-right amount">45,000만</td>
+                                <td><span class="badge badge-info">협상중</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px">
+                                        <div class="progress-bar" style="width:60px">
+                                            <div class="progress-fill high" style="width:75%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">75%</span>
+                                    </div>
+                                </td>
+                                <td>2026-03-25</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>I건설</strong></td>
+                                <td>현장 모니터링 시스템</td>
+                                <td class="text-right amount">32,000만</td>
+                                <td><span class="badge badge-info">초기접촉</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px">
+                                        <div class="progress-bar" style="width:60px">
+                                            <div class="progress-fill low" style="width:20%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">20%</span>
+                                    </div>
+                                </td>
+                                <td>2026-08-30</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>J에너지</strong></td>
+                                <td>위험성 평가 컨설팅</td>
+                                <td class="text-right amount">38,000만</td>
+                                <td><span class="badge badge-info">제안서 제출</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px">
+                                        <div class="progress-bar" style="width:60px">
+                                            <div class="progress-fill medium" style="width:55%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">55%</span>
+                                    </div>
+                                </td>
+                                <td>2026-05-15</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">월별 매출 추이</div>
+                <div class="chart-container">
+                    <canvas id="salesMonthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-20">
+            <div class="card-title">주요 고객사별 매출</div>
+            <div class="chart-container">
+                <canvas id="salesClientChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 전략기획실 ==================== -->
+    <div class="tab-content" id="tab-strategic">
+        <div class="section-title">
+            전략기획실 경영 현황
+            <span class="dept-badge">박민준 실장 | 10명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">전략 과제</div>
+                <div class="kpi-value">8</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">완료 과제</div>
+                <div class="kpi-value">3</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">시장 점유율</div>
+                <div class="kpi-value">12.5%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">시장 성장률</div>
+                <div class="kpi-value">18.3%</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">전략 과제 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>과제명</th>
+                                <th>담당자</th>
+                                <th>우선순위</th>
+                                <th>상태</th>
+                                <th>진행률</th>
+                                <th>마감일</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td><strong>AI 기반 안전관리 솔루션 고도화</strong></td>
+                                <td>박민준</td>
+                                <td><span class="badge badge-danger">최상</span></td>
+                                <td><span class="badge badge-info">진행중</span></td>
+                                <td style="min-width:120px">
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="flex:1">
+                                            <div class="progress-fill medium" style="width:65%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">65%</span>
+                                    </div>
+                                </td>
+                                <td>2026-12-31</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>동남아 시장 진출 전략</strong></td>
+                                <td>최서연</td>
+                                <td><span class="badge badge-warning">상</span></td>
+                                <td><span class="badge badge-info">진행중</span></td>
+                                <td style="min-width:120px">
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="flex:1">
+                                            <div class="progress-fill medium" style="width:40%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">40%</span>
+                                    </div>
+                                </td>
+                                <td>2026-09-30</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>ESG 경영 체계 구축</strong></td>
+                                <td>정하늘</td>
+                                <td><span class="badge badge-warning">상</span></td>
+                                <td><span class="badge badge-info">진행중</span></td>
+                                <td style="min-width:120px">
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="flex:1">
+                                            <div class="progress-fill medium" style="width:55%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">55%</span>
+                                    </div>
+                                </td>
+                                <td>2026-06-30</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>데이터 기반 의사결정 체계 수립</strong></td>
+                                <td>박민준</td>
+                                <td><span class="badge badge-default">중</span></td>
+                                <td><span class="badge badge-success">완료</span></td>
+                                <td style="min-width:120px">
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="flex:1">
+                                            <div class="progress-fill high" style="width:100%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">100%</span>
+                                    </div>
+                                </td>
+                                <td>2026-02-28</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">KPI 달성 현황</div>
+                <div class="chart-container">
+                    <canvas id="stratKpiChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">시장 분석</div>
+                <div style="padding:8px 0">
+                    <div class="risk-item">
+                        <strong>전체 시장 규모:</strong>&nbsp;388억원
+                    </div>
+                    <div class="risk-item">
+                        <strong>당사 포지션:</strong>&nbsp;상위 5위
+                    </div>
+                    <div class="risk-item">
+                        <strong>성장 영역:</strong>&nbsp;AI 안전관리, 스마트 건설, ESG 컨설팅
+                    </div>
+                    <div class="risk-item">
+                        <strong>위협 요인:</strong>&nbsp;대기업 진출 확대, 규제 변화
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">KPI 상세</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>KPI</th><th class="text-right">목표</th><th class="text-right">실적</th><th>달성률</th></tr></thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td>신규 시장 진출</td>
+                                <td class="text-right">2개국</td>
+                                <td class="text-right">1개국</td>
+                                <td>
+                                    
+                                    <span class="badge badge-warning">50.0%</span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td>신제품 출시</td>
+                                <td class="text-right">3개</td>
+                                <td class="text-right">2개</td>
+                                <td>
+                                    
+                                    <span class="badge badge-warning">66.7%</span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td>전략 파트너십</td>
+                                <td class="text-right">5건</td>
+                                <td class="text-right">4건</td>
+                                <td>
+                                    
+                                    <span class="badge badge-success">80.0%</span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td>시장 점유율</td>
+                                <td class="text-right">15.0%</td>
+                                <td class="text-right">12.5%</td>
+                                <td>
+                                    
+                                    <span class="badge badge-success">83.3%</span>
+                                </td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 인사팀 ==================== -->
+    <div class="tab-content" id="tab-hr">
+        <div class="section-title">
+            인사팀 경영 현황
+            <span class="dept-badge">한소희 팀장 | 12명</span>
+        </div>
+
+        <div class="grid grid-4 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">총 임직원</div>
+                <div class="kpi-value">87명</div>
+                <div class="kpi-sub">신규 입사 12명 (YTD)</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">이직률</div>
+                <div class="kpi-value">8.5%</div>
+                <div class="kpi-sub">평균 근속 3.2년</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">직원 만족도</div>
+                <div class="kpi-value">78.5점</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">채용 진행중</div>
+                <div class="kpi-value">5건</div>
+                <div class="kpi-sub">교육시간 24h/인</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">부서별 인원 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>부서</th><th class="text-right">인원</th><th class="text-right">신규 채용</th><th class="text-right">퇴사</th><th>순증감</th></tr></thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td><strong>사업수행팀</strong></td>
+                                <td class="text-right">28명</td>
+                                <td class="text-right">4명</td>
+                                <td class="text-right">2명</td>
+                                <td>
+                                    
+                                    <span class="badge badge-success">
+                                        +2명
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>영업팀</strong></td>
+                                <td class="text-right">18명</td>
+                                <td class="text-right">3명</td>
+                                <td class="text-right">1명</td>
+                                <td>
+                                    
+                                    <span class="badge badge-success">
+                                        +2명
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>전략기획실</strong></td>
+                                <td class="text-right">10명</td>
+                                <td class="text-right">1명</td>
+                                <td class="text-right">0명</td>
+                                <td>
+                                    
+                                    <span class="badge badge-success">
+                                        +1명
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>인사팀</strong></td>
+                                <td class="text-right">12명</td>
+                                <td class="text-right">2명</td>
+                                <td class="text-right">1명</td>
+                                <td>
+                                    
+                                    <span class="badge badge-success">
+                                        +1명
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>재무팀</strong></td>
+                                <td class="text-right">19명</td>
+                                <td class="text-right">2명</td>
+                                <td class="text-right">1명</td>
+                                <td>
+                                    
+                                    <span class="badge badge-success">
+                                        +1명
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">채용 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>포지션</th><th>부서</th><th>상태</th><th class="text-right">지원자</th></tr></thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td><strong>AI 개발자</strong></td>
+                                <td>사업수행팀</td>
+                                <td><span class="badge badge-info">면접진행</span></td>
+                                <td class="text-right">35명</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>안전관리 컨설턴트</strong></td>
+                                <td>사업수행팀</td>
+                                <td><span class="badge badge-info">공고중</span></td>
+                                <td class="text-right">18명</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>영업 매니저</strong></td>
+                                <td>영업팀</td>
+                                <td><span class="badge badge-info">서류검토</span></td>
+                                <td class="text-right">22명</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>재무분석가</strong></td>
+                                <td>재무팀</td>
+                                <td><span class="badge badge-info">공고중</span></td>
+                                <td class="text-right">12명</td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>기획 담당자</strong></td>
+                                <td>전략기획실</td>
+                                <td><span class="badge badge-info">최종면접</span></td>
+                                <td class="text-right">8명</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">교육 프로그램 현황</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>프로그램</th><th class="text-right">참여인원</th><th>이수율</th></tr></thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td>AI/ML 기초 교육</td>
+                                <td class="text-right">25명</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="width:80px">
+                                            <div class="progress-fill high" style="width:80%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">80%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td>안전관리 전문가 과정</td>
+                                <td class="text-right">15명</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="width:80px">
+                                            <div class="progress-fill high" style="width:93%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">93%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td>리더십 워크숍</td>
+                                <td class="text-right">12명</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="width:80px">
+                                            <div class="progress-fill high" style="width:100%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">100%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td>ESG 교육</td>
+                                <td class="text-right">45명</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:8px">
+                                        <div class="progress-bar" style="width:80px">
+                                            <div class="progress-fill medium" style="width:67%"></div>
+                                        </div>
+                                        <span style="font-size:0.8rem">67%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">월별 인원 추이</div>
+                <div class="chart-container">
+                    <canvas id="hrHeadcountChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 재무팀 ==================== -->
+    <div class="tab-content" id="tab-finance">
+        <div class="section-title">
+            재무팀 경영 현황
+            <span class="dept-badge">정태호 팀장 | 19명</span>
+        </div>
+
+        <div class="grid grid-5 mb-20">
+            <div class="kpi-card">
+                <div class="kpi-label">총 매출</div>
+                <div class="kpi-value">48억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">영업이익</div>
+                <div class="kpi-value">6.2억</div>
+                <div class="kpi-sub">이익률 12.8%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">순이익</div>
+                <div class="kpi-value">4.8억</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">부채비율</div>
+                <div class="kpi-value">34.1%</div>
+                <div class="kpi-sub">유동비율 2.15</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">현금 보유</div>
+                <div class="kpi-value">18억</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-title">손익계산서 요약</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>항목</th><th class="text-right">당기</th><th class="text-right">전기</th><th class="text-right">증감률</th></tr></thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td><strong>매출액</strong></td>
+                                <td class="text-right amount">485,000만</td>
+                                <td class="text-right amount">421,000만</td>
+                                <td class="text-right">
+                                    <span class="kpi-change positive">
+                                        +15.2%
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>매출원가</strong></td>
+                                <td class="text-right amount">310,000만</td>
+                                <td class="text-right amount">275,000만</td>
+                                <td class="text-right">
+                                    <span class="kpi-change positive">
+                                        +12.7%
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>매출총이익</strong></td>
+                                <td class="text-right amount">175,000만</td>
+                                <td class="text-right amount">146,000만</td>
+                                <td class="text-right">
+                                    <span class="kpi-change positive">
+                                        +19.9%
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>판관비</strong></td>
+                                <td class="text-right amount">113,000만</td>
+                                <td class="text-right amount">98,000만</td>
+                                <td class="text-right">
+                                    <span class="kpi-change positive">
+                                        +15.3%
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>영업이익</strong></td>
+                                <td class="text-right amount">62,000만</td>
+                                <td class="text-right amount">48,000만</td>
+                                <td class="text-right">
+                                    <span class="kpi-change positive">
+                                        +29.2%
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>당기순이익</strong></td>
+                                <td class="text-right amount">48,500만</td>
+                                <td class="text-right amount">37,000만</td>
+                                <td class="text-right">
+                                    <span class="kpi-change positive">
+                                        +31.1%
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">비용 구조</div>
+                <div class="chart-container">
+                    <canvas id="finExpenseChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2 mt-20">
+            <div class="card">
+                <div class="card-title">월별 매출/이익 추이</div>
+                <div class="chart-container">
+                    <canvas id="finRevProfitChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">부서별 예산 대비 실적</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>부서</th><th class="text-right">예산</th><th class="text-right">실적</th><th class="text-right">차이</th></tr></thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td><strong>사업수행팀</strong></td>
+                                <td class="text-right amount">180,000만</td>
+                                <td class="text-right amount">172,000만</td>
+                                <td class="text-right">
+                                    <span class="badge badge-success">-4.4%</span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>영업팀</strong></td>
+                                <td class="text-right amount">95,000만</td>
+                                <td class="text-right amount">98,000만</td>
+                                <td class="text-right">
+                                    <span class="badge badge-warning">3.2%</span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>전략기획실</strong></td>
+                                <td class="text-right amount">45,000만</td>
+                                <td class="text-right amount">42,000만</td>
+                                <td class="text-right">
+                                    <span class="badge badge-success">-6.7%</span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>인사팀</strong></td>
+                                <td class="text-right amount">38,000만</td>
+                                <td class="text-right amount">36,500만</td>
+                                <td class="text-right">
+                                    <span class="badge badge-success">-3.9%</span>
+                                </td>
+                            </tr>
+                            
+                            <tr>
+                                <td><strong>재무팀</strong></td>
+                                <td class="text-right amount">62,000만</td>
+                                <td class="text-right amount">59,500만</td>
+                                <td class="text-right">
+                                    <span class="badge badge-success">-4.0%</span>
+                                </td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// Tab navigation
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+// Chart defaults
+Chart.defaults.font.family = "'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+const COLORS = ['#1a237e','#0d47a1','#1565c0','#1976d2','#1e88e5','#42a5f5'];
+const COLORS_LIGHT = ['rgba(26,35,126,0.15)','rgba(13,71,161,0.15)','rgba(21,101,192,0.15)','rgba(25,118,210,0.15)','rgba(30,136,229,0.15)'];
+
+// Data from server
+const overviewData = {"company_name": "\ub9ac\uc2a4\ud06c\uc81c\ub85c(\uc8fc)", "completed_projects": 14, "department_headcount": {"\uc0ac\uc5c5\uc218\ud589\ud300": 28, "\uc601\uc5c5\ud300": 18, "\uc778\uc0ac\ud300": 12, "\uc7ac\ubb34\ud300": 19, "\uc804\ub7b5\uae30\ud68d\uc2e4": 10}, "fiscal_year": 2026, "key_risks": [{"description": "\uc8fc\uc694 \uace0\uac1d\uc0ac \uacc4\uc57d \uac31\uc2e0 \ud611\uc0c1 \uc911 (3\uc6d4 \ub9d0 \ub9c8\uac10)", "level": "high"}, {"description": "\uc2e0\uaddc \uc778\ub825 \ucda9\uc6d0 \uc9c0\uc5f0 (\uac1c\ubc1c \uc9c1\uad70)", "level": "medium"}, {"description": "\uc0ac\ubb34\uc2e4 \uc784\ub300 \uacc4\uc57d \uac31\uc2e0 (6\uc6d4)", "level": "low"}], "monthly_revenue": [{"month": "1\uc6d4", "value": 400667905}, {"month": "2\uc6d4", "value": 404419211}, {"month": "3\uc6d4", "value": 421882624}], "net_profit": 485000000, "new_contracts_ytd": 18, "ongoing_projects": 23, "operating_profit": 620000000, "operating_profit_margin": 12.8, "report_date": "2026-03-08", "revenue_achievement_rate": 80.8, "total_employees": 87, "total_revenue": 4850000000, "total_revenue_target": 6000000000, "yoy_profit_growth": 8.7, "yoy_revenue_growth": 15.2};
+const bopsData = {"department": "\uc0ac\uc5c5\uc218\ud589\ud300", "head": "\uae40\uc601\uc218 \ud300\uc7a5", "headcount": 28, "monthly_delivery": [{"month": "1\uc6d4", "value": 2}, {"month": "2\uc6d4", "value": 2}, {"month": "3\uc6d4", "value": 2}], "projects": [{"budget": 350000000, "client": "A\uac74\uc124", "deadline": "2026-05-15", "name": "A\uc0ac \uc548\uc804\ubcf4\uac74 \uad00\ub9ac\uc2dc\uc2a4\ud15c \uad6c\ucd95", "progress": 72, "risk": "low", "spent": 248000000, "status": "\uc9c4\ud589\uc911"}, {"budget": 520000000, "client": "B\uc911\uacf5\uc5c5", "deadline": "2026-07-30", "name": "B\uc0ac \uc2a4\ub9c8\ud2b8 \uc548\uc804 \ubaa8\ub2c8\ud130\ub9c1", "progress": 45, "risk": "medium", "spent": 210000000, "status": "\uc9c4\ud589\uc911"}, {"budget": 280000000, "client": "C\uac74\uc124", "deadline": "2026-03-31", "name": "C\uc0ac AI \uc704\ud5d8\uc131 \ud3c9\uac00 \ud50c\ub7ab\ud3fc", "progress": 88, "risk": "high", "spent": 245000000, "status": "\uc9c4\ud589\uc911"}, {"budget": 150000000, "client": "D\uc81c\uc870", "deadline": "2026-02-28", "name": "D\uc0ac \uc0b0\uc5c5\uc548\uc804 \ucee8\uc124\ud305", "progress": 100, "risk": "low", "spent": 142000000, "status": "\uc644\ub8cc"}, {"budget": 680000000, "client": "E\uac74\uc124", "deadline": "2026-09-30", "name": "E\uc0ac \uac74\uc124\ud604\uc7a5 IoT \uc548\uc804\uc2dc\uc2a4\ud15c", "progress": 30, "risk": "low", "spent": 185000000, "status": "\uc9c4\ud589\uc911"}], "resource_utilization": 87.5, "summary": {"avg_project_duration_days": 95, "client_satisfaction_score": 4.3, "completed_projects": 14, "delayed_projects": 3, "ongoing_projects": 23, "project_completion_rate": 82.4}};
+const salesData = {"department": "\uc601\uc5c5\ud300", "head": "\uc774\uc9c0\ud604 \ud300\uc7a5", "headcount": 18, "monthly_sales": [{"month": "1\uc6d4", "value": 460778787}, {"month": "2\uc6d4", "value": 537840331}, {"month": "3\uc6d4", "value": 620616149}], "pipeline": [{"client": "F\uadf8\ub8f9", "deal_name": "\ud1b5\ud569 \uc548\uc804\uad00\ub9ac \ud50c\ub7ab\ud3fc", "expected_close": "2026-04-15", "probability": 60, "stage": "\uc81c\uc548\uc11c \uc81c\ucd9c", "value": 850000000}, {"client": "G\uacf5\uc0ac", "deal_name": "\uc2a4\ub9c8\ud2b8 \uac74\uc124\uc548\uc804 \uc2dc\uc2a4\ud15c", "expected_close": "2026-06-30", "probability": 40, "stage": "\uae30\uc220\uac80\ud1a0", "value": 1200000000}, {"client": "H\uc81c\uc870", "deal_name": "\uc0b0\uc5c5\uc548\uc804 AI \uc194\ub8e8\uc158", "expected_close": "2026-03-25", "probability": 75, "stage": "\ud611\uc0c1\uc911", "value": 450000000}, {"client": "I\uac74\uc124", "deal_name": "\ud604\uc7a5 \ubaa8\ub2c8\ud130\ub9c1 \uc2dc\uc2a4\ud15c", "expected_close": "2026-08-30", "probability": 20, "stage": "\ucd08\uae30\uc811\ucd09", "value": 320000000}, {"client": "J\uc5d0\ub108\uc9c0", "deal_name": "\uc704\ud5d8\uc131 \ud3c9\uac00 \ucee8\uc124\ud305", "expected_close": "2026-05-15", "probability": 55, "stage": "\uc81c\uc548\uc11c \uc81c\ucd9c", "value": 380000000}], "summary": {"achievement_rate": 80.8, "annual_target": 6000000000, "avg_deal_size": 285000000, "conversion_rate": 32.5, "new_leads_month": 15, "pipeline_value": 3200000000, "ytd_actual": 4850000000}, "top_clients_revenue": [{"client": "A\uac74\uc124", "revenue": 850000000}, {"client": "B\uc911\uacf5\uc5c5", "revenue": 720000000}, {"client": "C\uac74\uc124", "revenue": 580000000}, {"client": "D\uc81c\uc870", "revenue": 450000000}, {"client": "E\uac74\uc124", "revenue": 380000000}]};
+const financeData = {"budget_vs_actual": [{"actual": 1720000000, "budget": 1800000000, "dept": "\uc0ac\uc5c5\uc218\ud589\ud300", "variance": -4.4}, {"actual": 980000000, "budget": 950000000, "dept": "\uc601\uc5c5\ud300", "variance": 3.2}, {"actual": 420000000, "budget": 450000000, "dept": "\uc804\ub7b5\uae30\ud68d\uc2e4", "variance": -6.7}, {"actual": 365000000, "budget": 380000000, "dept": "\uc778\uc0ac\ud300", "variance": -3.9}, {"actual": 595000000, "budget": 620000000, "dept": "\uc7ac\ubb34\ud300", "variance": -4.0}], "department": "\uc7ac\ubb34\ud300", "expense_breakdown": [{"amount": 2100000000, "category": "\uc778\uac74\ube44", "ratio": 43.3}, {"amount": 980000000, "category": "\uc678\uc8fc\ube44", "ratio": 20.2}, {"amount": 620000000, "category": "\uae30\uc220\uac1c\ubc1c\ube44", "ratio": 12.8}, {"amount": 350000000, "category": "\ub9c8\ucf00\ud305\ube44", "ratio": 7.2}, {"amount": 280000000, "category": "\uc784\ucc28\ub8cc", "ratio": 5.8}, {"amount": 520000000, "category": "\uae30\ud0c0", "ratio": 10.7}], "head": "\uc815\ud0dc\ud638 \ud300\uc7a5", "headcount": 19, "income_statement": [{"change": 15.2, "current": 4850000000, "item": "\ub9e4\ucd9c\uc561", "previous": 4210000000}, {"change": 12.7, "current": 3100000000, "item": "\ub9e4\ucd9c\uc6d0\uac00", "previous": 2750000000}, {"change": 19.9, "current": 1750000000, "item": "\ub9e4\ucd9c\ucd1d\uc774\uc775", "previous": 1460000000}, {"change": 15.3, "current": 1130000000, "item": "\ud310\uad00\ube44", "previous": 980000000}, {"change": 29.2, "current": 620000000, "item": "\uc601\uc5c5\uc774\uc775", "previous": 480000000}, {"change": 31.1, "current": 485000000, "item": "\ub2f9\uae30\uc21c\uc774\uc775", "previous": 370000000}], "monthly_profit": [{"month": "1\uc6d4", "value": 58756170}, {"month": "2\uc6d4", "value": 41639558}, {"month": "3\uc6d4", "value": 42831768}], "monthly_revenue": [{"month": "1\uc6d4", "value": 397250177}, {"month": "2\uc6d4", "value": 414601262}, {"month": "3\uc6d4", "value": 396173175}], "summary": {"cash_reserves": 1850000000, "current_ratio": 2.15, "debt_ratio": 34.1, "equity": 5400000000, "net_profit": 485000000, "operating_margin": 12.8, "operating_profit": 620000000, "total_assets": 8200000000, "total_liabilities": 2800000000, "total_revenue": 4850000000}};
+const hrData = {"department": "\uc778\uc0ac\ud300", "department_breakdown": [{"count": 28, "dept": "\uc0ac\uc5c5\uc218\ud589\ud300", "new_hires": 4, "turnover": 2}, {"count": 18, "dept": "\uc601\uc5c5\ud300", "new_hires": 3, "turnover": 1}, {"count": 10, "dept": "\uc804\ub7b5\uae30\ud68d\uc2e4", "new_hires": 1, "turnover": 0}, {"count": 12, "dept": "\uc778\uc0ac\ud300", "new_hires": 2, "turnover": 1}, {"count": 19, "dept": "\uc7ac\ubb34\ud300", "new_hires": 2, "turnover": 1}], "head": "\ud55c\uc18c\ud76c \ud300\uc7a5", "headcount": 12, "monthly_headcount": [{"month": "1\uc6d4", "value": 87}, {"month": "2\uc6d4", "value": 83}, {"month": "3\uc6d4", "value": 83}], "recruitment": [{"applicants": 35, "dept": "\uc0ac\uc5c5\uc218\ud589\ud300", "position": "AI \uac1c\ubc1c\uc790", "status": "\uba74\uc811\uc9c4\ud589"}, {"applicants": 18, "dept": "\uc0ac\uc5c5\uc218\ud589\ud300", "position": "\uc548\uc804\uad00\ub9ac \ucee8\uc124\ud134\ud2b8", "status": "\uacf5\uace0\uc911"}, {"applicants": 22, "dept": "\uc601\uc5c5\ud300", "position": "\uc601\uc5c5 \ub9e4\ub2c8\uc800", "status": "\uc11c\ub958\uac80\ud1a0"}, {"applicants": 12, "dept": "\uc7ac\ubb34\ud300", "position": "\uc7ac\ubb34\ubd84\uc11d\uac00", "status": "\uacf5\uace0\uc911"}, {"applicants": 8, "dept": "\uc804\ub7b5\uae30\ud68d\uc2e4", "position": "\uae30\ud68d \ub2f4\ub2f9\uc790", "status": "\ucd5c\uc885\uba74\uc811"}], "summary": {"avg_tenure_years": 3.2, "employee_satisfaction": 78.5, "new_hires_ytd": 12, "open_positions": 5, "total_employees": 87, "training_hours_per_person": 24, "turnover_rate": 8.5}, "training_programs": [{"completion_rate": 80, "name": "AI/ML \uae30\ucd08 \uad50\uc721", "participants": 25}, {"completion_rate": 93, "name": "\uc548\uc804\uad00\ub9ac \uc804\ubb38\uac00 \uacfc\uc815", "participants": 15}, {"completion_rate": 100, "name": "\ub9ac\ub354\uc2ed \uc6cc\ud06c\uc20d", "participants": 12}, {"completion_rate": 67, "name": "ESG \uad50\uc721", "participants": 45}]};
+const stratData = {"department": "\uc804\ub7b5\uae30\ud68d\uc2e4", "head": "\ubc15\ubbfc\uc900 \uc2e4\uc7a5", "headcount": 10, "initiatives": [{"deadline": "2026-12-31", "name": "AI \uae30\ubc18 \uc548\uc804\uad00\ub9ac \uc194\ub8e8\uc158 \uace0\ub3c4\ud654", "owner": "\ubc15\ubbfc\uc900", "priority": "\ucd5c\uc0c1", "progress": 65, "status": "\uc9c4\ud589\uc911"}, {"deadline": "2026-09-30", "name": "\ub3d9\ub0a8\uc544 \uc2dc\uc7a5 \uc9c4\ucd9c \uc804\ub7b5", "owner": "\ucd5c\uc11c\uc5f0", "priority": "\uc0c1", "progress": 40, "status": "\uc9c4\ud589\uc911"}, {"deadline": "2026-06-30", "name": "ESG \uacbd\uc601 \uccb4\uacc4 \uad6c\ucd95", "owner": "\uc815\ud558\ub298", "priority": "\uc0c1", "progress": 55, "status": "\uc9c4\ud589\uc911"}, {"deadline": "2026-02-28", "name": "\ub370\uc774\ud130 \uae30\ubc18 \uc758\uc0ac\uacb0\uc815 \uccb4\uacc4 \uc218\ub9bd", "owner": "\ubc15\ubbfc\uc900", "priority": "\uc911", "progress": 100, "status": "\uc644\ub8cc"}], "kpi_tracking": [{"actual": 1, "kpi": "\uc2e0\uaddc \uc2dc\uc7a5 \uc9c4\ucd9c", "target": 2, "unit": "\uac1c\uad6d"}, {"actual": 2, "kpi": "\uc2e0\uc81c\ud488 \ucd9c\uc2dc", "target": 3, "unit": "\uac1c"}, {"actual": 4, "kpi": "\uc804\ub7b5 \ud30c\ud2b8\ub108\uc2ed", "target": 5, "unit": "\uac74"}, {"actual": 12.5, "kpi": "\uc2dc\uc7a5 \uc810\uc720\uc728", "target": 15.0, "unit": "%"}], "market_analysis": {"company_position": "\uc0c1\uc704 5\uc704", "growth_areas": ["AI \uc548\uc804\uad00\ub9ac", "\uc2a4\ub9c8\ud2b8 \uac74\uc124", "ESG \ucee8\uc124\ud305"], "threats": ["\ub300\uae30\uc5c5 \uc9c4\ucd9c \ud655\ub300", "\uaddc\uc81c \ubcc0\ud654"], "total_market_size": 38800000000}, "summary": {"at_risk": 1, "completed_initiatives": 3, "market_growth_rate": 18.3, "market_share": 12.5, "on_track": 4, "strategic_initiatives": 8}};
+
+// 1. Overview Revenue Chart
+new Chart(document.getElementById('overviewRevenueChart'), {
+    type: 'bar',
+    data: {
+        labels: overviewData.monthly_revenue.map(m => m.month),
+        datasets: [{
+            label: '월 매출 (억)',
+            data: overviewData.monthly_revenue.map(m => (m.value / 100000000).toFixed(1)),
+            backgroundColor: 'rgba(26,35,126,0.7)',
+            borderRadius: 6
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+});
+
+// 2. Headcount Pie
+const hcLabels = Object.keys(overviewData.department_headcount);
+const hcValues = Object.values(overviewData.department_headcount);
+new Chart(document.getElementById('overviewHeadcountChart'), {
+    type: 'doughnut',
+    data: {
+        labels: hcLabels,
+        datasets: [{ data: hcValues, backgroundColor: COLORS }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+});
+
+// 3. Budget Chart
+new Chart(document.getElementById('budgetChart'), {
+    type: 'bar',
+    data: {
+        labels: financeData.budget_vs_actual.map(b => b.dept),
+        datasets: [
+            { label: '예산', data: financeData.budget_vs_actual.map(b => (b.budget / 100000000).toFixed(1)), backgroundColor: 'rgba(26,35,126,0.3)', borderRadius: 4 },
+            { label: '실적', data: financeData.budget_vs_actual.map(b => (b.actual / 100000000).toFixed(1)), backgroundColor: 'rgba(26,35,126,0.8)', borderRadius: 4 }
+        ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+
+// 4. Bops Delivery
+new Chart(document.getElementById('bopsDeliveryChart'), {
+    type: 'line',
+    data: {
+        labels: bopsData.monthly_delivery.map(m => m.month),
+        datasets: [{
+            label: '납품 건수',
+            data: bopsData.monthly_delivery.map(m => m.value),
+            borderColor: COLORS[0],
+            backgroundColor: COLORS_LIGHT[0],
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+
+// 5. Sales Monthly
+new Chart(document.getElementById('salesMonthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: salesData.monthly_sales.map(m => m.month),
+        datasets: [{
+            label: '월 매출 (억)',
+            data: salesData.monthly_sales.map(m => (m.value / 100000000).toFixed(1)),
+            backgroundColor: 'rgba(13,71,161,0.7)',
+            borderRadius: 6
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+});
+
+// 6. Sales Client
+new Chart(document.getElementById('salesClientChart'), {
+    type: 'bar',
+    data: {
+        labels: salesData.top_clients_revenue.map(c => c.client),
+        datasets: [{
+            label: '매출 (억)',
+            data: salesData.top_clients_revenue.map(c => (c.revenue / 100000000).toFixed(1)),
+            backgroundColor: COLORS.slice(0, 5),
+            borderRadius: 6
+        }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+});
+
+// 7. Strategic KPI
+new Chart(document.getElementById('stratKpiChart'), {
+    type: 'bar',
+    data: {
+        labels: stratData.kpi_tracking.map(k => k.kpi),
+        datasets: [
+            { label: '목표', data: stratData.kpi_tracking.map(k => k.target), backgroundColor: 'rgba(26,35,126,0.3)', borderRadius: 4 },
+            { label: '실적', data: stratData.kpi_tracking.map(k => k.actual), backgroundColor: 'rgba(26,35,126,0.8)', borderRadius: 4 }
+        ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+
+// 8. HR Headcount
+new Chart(document.getElementById('hrHeadcountChart'), {
+    type: 'line',
+    data: {
+        labels: hrData.monthly_headcount.map(m => m.month),
+        datasets: [{
+            label: '인원',
+            data: hrData.monthly_headcount.map(m => m.value),
+            borderColor: COLORS[0],
+            backgroundColor: COLORS_LIGHT[0],
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
+});
+
+// 9. Finance Expense
+new Chart(document.getElementById('finExpenseChart'), {
+    type: 'doughnut',
+    data: {
+        labels: financeData.expense_breakdown.map(e => e.category),
+        datasets: [{ data: financeData.expense_breakdown.map(e => e.amount / 100000000), backgroundColor: COLORS }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+});
+
+// 10. Finance Revenue/Profit
+new Chart(document.getElementById('finRevProfitChart'), {
+    type: 'bar',
+    data: {
+        labels: financeData.monthly_revenue.map(m => m.month),
+        datasets: [
+            { label: '매출 (억)', data: financeData.monthly_revenue.map(m => (m.value / 100000000).toFixed(1)), backgroundColor: 'rgba(26,35,126,0.7)', borderRadius: 4 },
+            { label: '이익 (억)', data: financeData.monthly_profit.map(m => (m.value / 100000000).toFixed(2)), backgroundColor: 'rgba(46,125,50,0.7)', borderRadius: 4 }
+        ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+});
+</script>
+
+</body>
+</html>
